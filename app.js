@@ -3,7 +3,7 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-let mongoose = require('mongoose')
+const { initDatabase, DB_CONFIG } = require('./db/mysql');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -25,13 +25,15 @@ app.use('/users', usersRouter);
 app.use('/api/v1/products', require('./routes/products'));
 app.use('/api/v1/categories', require('./routes/categories'));
 
-mongoose.connect('mongodb://localhost:27017/NNPTUD-C3');
-mongoose.connection.on('connected',()=>{
-  console.log("connected");
-})
-mongoose.connection.on('disconnected',()=>{
-  console.log("disconnected");
-})
+initDatabase()
+  .then(function () {
+    console.log(
+      `MySQL connected: ${DB_CONFIG.user}@${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database}`
+    );
+  })
+  .catch(function (error) {
+    console.error('MySQL init failed:', error.message);
+  });
 
 
 // catch 404 and forward to error handler
@@ -41,24 +43,35 @@ app.use(function(req, res, next) {
 
 function getApiErrorStatus(err) {
   if (err.status || err.statusCode) return err.status || err.statusCode;
-  if (err.name === 'ValidationError') return 400;
-  if (err.name === 'CastError') return 400;
-  if (err.code === 11000) return 409;
+  if (err.type === 'entity.parse.failed') return 400;
+  if (err.code === 'ER_DUP_ENTRY') return 409;
+  if (err.code === 'ER_NO_REFERENCED_ROW_2') return 400;
+  if (err.code === 'ER_ROW_IS_REFERENCED_2') return 400;
+  if (err.code === 'ER_BAD_NULL_ERROR') return 400;
+  if (err.code === 'ER_TRUNCATED_WRONG_VALUE') return 400;
+  if (err.code === 'ER_DATA_TOO_LONG') return 400;
+  if (err.code === 'ER_CHECK_CONSTRAINT_VIOLATED') return 400;
   return 500;
 }
 
 function getApiErrorBody(err, status) {
-  if (err.name === 'ValidationError') {
+  if (err.type === 'entity.parse.failed') {
     return {
-      message: 'Validation failed',
-      details: Object.values(err.errors || {}).map((item) => item.message),
+      message: 'Invalid JSON request body',
     };
   }
 
-  if (err.code === 11000) {
+  if (err.code === 'ER_DUP_ENTRY') {
     return {
       message: 'Duplicate value violates a unique field',
-      details: { keyValue: err.keyValue || {} },
+      details: { sqlMessage: err.sqlMessage || '' },
+    };
+  }
+
+  if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+    return {
+      message: 'Referenced resource not found',
+      details: { sqlMessage: err.sqlMessage || '' },
     };
   }
 
