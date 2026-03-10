@@ -39,14 +39,58 @@ app.use(function(req, res, next) {
   next(createError(404));
 });
 
+function getApiErrorStatus(err) {
+  if (err.status || err.statusCode) return err.status || err.statusCode;
+  if (err.name === 'ValidationError') return 400;
+  if (err.name === 'CastError') return 400;
+  if (err.code === 11000) return 409;
+  return 500;
+}
+
+function getApiErrorBody(err, status) {
+  if (err.name === 'ValidationError') {
+    return {
+      message: 'Validation failed',
+      details: Object.values(err.errors || {}).map((item) => item.message),
+    };
+  }
+
+  if (err.code === 11000) {
+    return {
+      message: 'Duplicate value violates a unique field',
+      details: { keyValue: err.keyValue || {} },
+    };
+  }
+
+  if (status === 404) {
+    return { message: err.message || 'Resource not found' };
+  }
+
+  if (status === 400) {
+    return { message: err.message || 'Bad request' };
+  }
+
+  return { message: err.message || 'Internal server error' };
+}
+
 // error handler
 app.use(function(err, req, res, next) {
+  const status = getApiErrorStatus(err);
+
+  if (req.originalUrl.startsWith('/api/')) {
+    const body = getApiErrorBody(err, status);
+    if (req.app.get('env') === 'development' && status === 500) {
+      body.stack = err.stack;
+    }
+    return res.status(status).json(body);
+  }
+
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
 
   // render the error page
-  res.status(err.status || 500);
+  res.status(status);
   res.render('error');
 });
 
