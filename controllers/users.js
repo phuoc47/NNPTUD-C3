@@ -2,6 +2,12 @@ let userModel = require("../schemas/users");
 let bcrypt = require('bcrypt')
 let jwt = require('jsonwebtoken')
 let fs = require('fs')
+let path = require('path')
+
+const PRIVATE_KEY = fs.readFileSync(
+    path.join(__dirname, '..', 'keys', 'private.pem'),
+    'utf8'
+)
 
 module.exports = {
     CreateAnUser: async function (username, password, email, role, fullName, avatarUrl, status, loginCount) {
@@ -25,7 +31,7 @@ module.exports = {
     GetUserById: async function (id) {
         try {
             return await userModel
-                .find({
+                .findOne({
                     isDeleted: false,
                     _id: id
                 })
@@ -50,8 +56,9 @@ module.exports = {
                     await user.save();    
                     let token = jwt.sign({
                         id: user.id
-                    }, 'secret', {
-                        expiresIn: '1d'
+                    }, PRIVATE_KEY, {
+                        algorithm: 'RS256',
+                        expiresIn: '1d',
                     })
                     return token;
                 } else {
@@ -70,12 +77,11 @@ module.exports = {
         }
     },
     ChangePassword: async function (user, oldPassword, newPassword) {
-        if (bcrypt.compareSync(oldPassword, user.password)) {
-            user.password = newPassword;
-            await user.save();
-            return true;
-        } else {
-            return false;
-        }
+        if (!user) return false;
+        if (!bcrypt.compareSync(oldPassword, user.password)) return false;
+
+        user.password = newPassword;
+        await user.save();
+        return true;
     }
 }
