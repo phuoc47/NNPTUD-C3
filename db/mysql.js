@@ -32,41 +32,39 @@ async function initDatabase() {
   await connection.end();
 
   await query(`
-    CREATE TABLE IF NOT EXISTS categories (
+    CREATE TABLE IF NOT EXISTS roles (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
-      slug VARCHAR(255) NOT NULL,
-      description TEXT NOT NULL,
-      image VARCHAR(1024) NOT NULL,
-      is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+      description VARCHAR(1000) NOT NULL DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_categories_name (name),
-      UNIQUE KEY uq_categories_slug (slug)
+      UNIQUE KEY uq_roles_name (name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
   await query(`
-    CREATE TABLE IF NOT EXISTS products (
+    CREATE TABLE IF NOT EXISTS users (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(255) NOT NULL,
-      slug VARCHAR(255) NOT NULL,
-      price DECIMAL(12,2) NOT NULL DEFAULT 0,
-      description TEXT NOT NULL,
-      images JSON NOT NULL,
-      category_id INT UNSIGNED NOT NULL,
-      is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+      username VARCHAR(255) NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      full_name VARCHAR(255) NOT NULL DEFAULT '',
+      avatar_url VARCHAR(1024) NOT NULL DEFAULT 'https://i.sstatic.net/l60Hf.png',
+      status BOOLEAN NOT NULL DEFAULT FALSE,
+      role_id INT UNSIGNED NULL,
+      login_count INT UNSIGNED NOT NULL DEFAULT 0,
+      deleted BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_products_title (title),
-      UNIQUE KEY uq_products_slug (slug),
-      KEY idx_products_category_id (category_id),
-      CONSTRAINT fk_products_categories
-        FOREIGN KEY (category_id)
-        REFERENCES categories (id)
+      UNIQUE KEY uq_users_username (username),
+      UNIQUE KEY uq_users_email (email),
+      KEY idx_users_role_id (role_id),
+      CONSTRAINT fk_users_roles
+        FOREIGN KEY (role_id)
+        REFERENCES roles (id)
         ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-      CONSTRAINT chk_products_price_non_negative CHECK (price >= 0)
+        ON DELETE SET NULL,
+      CONSTRAINT chk_users_login_count_non_negative CHECK (login_count >= 0)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 }
